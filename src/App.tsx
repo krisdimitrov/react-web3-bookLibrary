@@ -13,6 +13,10 @@ import ConnectButton from './components/ConnectButton';
 import { Web3Provider } from '@ethersproject/providers';
 import { getChainData } from './helpers/utilities';
 
+import { BOOK_LIBRARY_CONTRACT_ADDRESS } from './constants';
+import { BOOK_LIBRARY } from './abis/BookLibrary.json';
+import { getContract } from './helpers/ethers';
+
 const SLayout = styled.div`
   position: relative;
   width: 100%;
@@ -101,23 +105,22 @@ class App extends React.Component<any, any> {
     this.provider = await this.web3Modal.connect();
 
     const library = new Web3Provider(this.provider);
-
     const network = await library.getNetwork();
-
     const address = this.provider.selectedAddress ? this.provider.selectedAddress : this.provider?.accounts[0];
+    const bookLibraryContract = getContract(BOOK_LIBRARY_CONTRACT_ADDRESS, BOOK_LIBRARY.abi, library, address);
 
     await this.setState({
       library,
       chainId: network.chainId,
       address,
-      connected: true
+      connected: true,
+      bookLibraryContract
     });
 
     await this.subscribeToProviderEvents(this.provider);
-
   };
 
-  public subscribeToProviderEvents = async (provider:any) => {
+  public subscribeToProviderEvents = async (provider: any) => {
     if (!provider.on) {
       return;
     }
@@ -129,7 +132,7 @@ class App extends React.Component<any, any> {
     await this.web3Modal.off('accountsChanged');
   };
 
-  public async unSubscribe(provider:any) {
+  public async unSubscribe(provider: any) {
     // Workaround for metamask widget > 9.0.3 (provider.off is undefined);
     window.location.reload(false);
     if (!provider.off) {
@@ -142,7 +145,7 @@ class App extends React.Component<any, any> {
   }
 
   public changedAccount = async (accounts: string[]) => {
-    if(!accounts.length) {
+    if (!accounts.length) {
       // Metamask Lock fire an empty accounts array 
       await this.resetApp();
     } else {
@@ -156,7 +159,7 @@ class App extends React.Component<any, any> {
     const chainId = network.chainId;
     await this.setState({ chainId, library });
   }
-  
+
   public close = async () => {
     this.resetApp();
   }
@@ -209,10 +212,10 @@ class App extends React.Component<any, any> {
                 </SContainer>
               </Column>
             ) : (
-                <SLanding center>
-                  {!this.state.connected && <ConnectButton onClick={this.onConnect} />}
-                </SLanding>
-              )}
+              <SLanding center>
+                {!this.state.connected && <ConnectButton onClick={this.onConnect} />}
+              </SLanding>
+            )}
           </SContent>
         </Column>
       </SLayout>
