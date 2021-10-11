@@ -11,14 +11,15 @@ import Loader from './components/Loader';
 import ConnectButton from './components/ConnectButton';
 
 import { Web3Provider } from '@ethersproject/providers';
-import { getChainData } from './helpers/utilities';
+import { getChainData, showNotification } from './helpers/utilities';
 
 import { BOOK_LIBRARY_CONTRACT_ADDRESS } from './constants/constants';
 import BOOK_LIBRARY from './abis/BookLibrary.json';
 import { getContract } from './helpers/ethers';
 import BookLibraryDashboard from './components/BookLibraryDashboard';
-import { Contract } from 'ethers';
+import { Contract, ethers } from 'ethers';
 import AppContext from './components/AppContext';
+import { NotificationType } from './helpers/types';
 
 const SLayout = styled.div`
   position: relative;
@@ -110,6 +111,12 @@ class App extends React.Component<any, any> {
     const library = new Web3Provider(this.provider);
     const network = await library.getNetwork();
     const address = this.provider.selectedAddress ? this.provider.selectedAddress : this.provider?.accounts[0];
+
+    if (!ethers.utils.isAddress(BOOK_LIBRARY_CONTRACT_ADDRESS)) {
+      showNotification('Provided contract address is not valid!', NotificationType.ERROR);
+      return;
+    }
+
     const bookLibraryContract = getContract(BOOK_LIBRARY_CONTRACT_ADDRESS, BOOK_LIBRARY.abi, library, address);
 
     await this.setState({
@@ -186,6 +193,7 @@ class App extends React.Component<any, any> {
     localStorage.removeItem("WEB3_CONNECT_CACHED_PROVIDER");
     localStorage.removeItem("walletconnect");
     await this.unSubscribe(this.provider);
+    await this.state.bookLibraryContract?.removeAllListeners();
 
     this.setState({ ...INITIAL_STATE });
   };
