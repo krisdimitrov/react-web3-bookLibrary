@@ -13,9 +13,12 @@ import ConnectButton from './components/ConnectButton';
 import { Web3Provider } from '@ethersproject/providers';
 import { getChainData } from './helpers/utilities';
 
-import { BOOK_LIBRARY_CONTRACT_ADDRESS } from './constants';
-import { BOOK_LIBRARY } from './abis/BookLibrary.json';
+import { BOOK_LIBRARY_CONTRACT_ADDRESS } from './constants/constants';
+import BOOK_LIBRARY from './abis/BookLibrary.json';
 import { getContract } from './helpers/ethers';
+import BookLibraryDashboard from './components/BookLibraryDashboard';
+import { Contract } from 'ethers';
+import AppContext from './components/AppContext';
 
 const SLayout = styled.div`
   position: relative;
@@ -60,7 +63,7 @@ interface IAppState {
   chainId: number;
   pendingRequest: boolean;
   result: any | null;
-  electionContract: any | null;
+  bookLibraryContract: Contract | null;
   info: any | null;
 }
 
@@ -72,7 +75,7 @@ const INITIAL_STATE: IAppState = {
   chainId: 1,
   pendingRequest: false,
   result: null,
-  electionContract: null,
+  bookLibraryContract: null,
   info: null
 };
 
@@ -134,7 +137,7 @@ class App extends React.Component<any, any> {
 
   public async unSubscribe(provider: any) {
     // Workaround for metamask widget > 9.0.3 (provider.off is undefined);
-    window.location.reload(false);
+    window.location.reload();
     if (!provider.off) {
       return;
     }
@@ -185,8 +188,8 @@ class App extends React.Component<any, any> {
     await this.unSubscribe(this.provider);
 
     this.setState({ ...INITIAL_STATE });
-
   };
+
 
   public render = () => {
     const {
@@ -196,29 +199,38 @@ class App extends React.Component<any, any> {
       fetching
     } = this.state;
     return (
-      <SLayout>
-        <Column maxWidth={1000} spanHeight>
-          <Header
-            connected={connected}
-            address={address}
-            chainId={chainId}
-            killSession={this.resetApp}
-          />
-          <SContent>
-            {fetching ? (
-              <Column center>
-                <SContainer>
-                  <Loader />
-                </SContainer>
-              </Column>
-            ) : (
-              <SLanding center>
-                {!this.state.connected && <ConnectButton onClick={this.onConnect} />}
-              </SLanding>
-            )}
-          </SContent>
-        </Column>
-      </SLayout>
+      <AppContext.Provider value={this.state}>
+        <SLayout>
+          <Column maxWidth={1000} spanHeight>
+            <Header
+              connected={connected}
+              address={address}
+              chainId={chainId}
+              killSession={this.resetApp}
+            />
+            <SContent>
+              {fetching ? (
+                <Column center>
+                  <SContainer>
+                    <Loader />
+                  </SContainer>
+                </Column>
+              ) : (
+                !connected ?
+                  <SLanding center>
+                    {!this.state.connected && <ConnectButton onClick={this.onConnect} />}
+                  </SLanding> :
+                  <SLanding>
+                    <BookLibraryDashboard
+                      connected={connected}
+                      bookLibraryContract={this.state.bookLibraryContract}
+                    />
+                  </SLanding>
+              )}
+            </SContent>
+          </Column>
+        </SLayout>
+      </AppContext.Provider>
     );
   };
 }

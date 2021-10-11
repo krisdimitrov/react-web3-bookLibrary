@@ -1,14 +1,14 @@
 import supportedChains from "./chains";
-import Noty from 'noty';
-import '../../node_modules/noty/lib/noty.css';  
-import '../../node_modules/noty/lib/themes/mint.css';  
+import Noty from "noty";
+import "../../node_modules/noty/lib/noty.css";
+import "../../node_modules/noty/lib/themes/mint.css";
 
-const NOTIFICATION_TIMEOUT = 3500;
+const NOTIFICATION_TIMEOUT = 2000;
 
 export function capitalize(string: string): string {
   return string
     .split(" ")
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }
 
@@ -25,7 +25,7 @@ export function ellipseText(
   const result =
     text
       .split(" ")
-      .filter(word => {
+      .filter((word) => {
         currentLength += word.length;
         if (ellipse || currentLength >= _maxLength) {
           ellipse = true;
@@ -112,7 +112,7 @@ export function getChainData(chainId: number): any {
   )[0];
 
   if (!chainData) {
-    chainData = supportedChains[0]
+    chainData = supportedChains[0];
   }
 
   const API_KEY = process.env.REACT_APP_INFURA_ID;
@@ -126,18 +126,37 @@ export function getChainData(chainId: number): any {
 
     return {
       ...chainData,
-      rpc_url: rpcUrl
+      rpc_url: rpcUrl,
     };
   }
 
   return chainData;
 }
 
-export function showNotification(text:string) {
-    new Noty({ 
-      text,
-      timeout: NOTIFICATION_TIMEOUT,
-      type: 'success'
-      
+export function showNotification(text: string, type?: any) {
+  new Noty({
+    text,
+    timeout: NOTIFICATION_TIMEOUT,
+    type: type ? type : "info",
+    layout: "topLeft",
   }).show();
+}
+
+export function showTransactionLinkDialog(text: string, transactionHash: any) {
+  const transactionLink = `https://ropsten.etherscan.io/tx/${transactionHash}`;
+  const noty = new Noty({
+    text,
+    layout: "topLeft",
+    type: "information",
+    theme: "mint",
+    closeWith: ["button"],
+    buttons: [
+      Noty.button("CHECK STATUS", "btn", () => {
+        window.open(transactionLink);
+        noty.close();
+      }),
+    ],
+  });
+
+  noty.show();
 }
