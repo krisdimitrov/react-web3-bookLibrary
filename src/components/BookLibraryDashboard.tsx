@@ -61,10 +61,8 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
     const [newBook, setNewBookData] = useState<IBook>({
         id: '',
         title: '',
-        copies: 0,
-        numberOfCopies: 0,
+        copies: 0
     });
-    const useMountEffect = (callback: any) => useEffect(callback, [])
 
     useEffect(() => {
         if (props.bookLibraryContract) {
@@ -73,34 +71,36 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
                 .then(() => showNotification('Books loaded.'))
                 .catch((reason) => processError(reason))
                 .finally(() => setLoading(false));
+
+            subscribeToContractEvents(props.bookLibraryContract);
         }
     }, []);
 
-    useMountEffect(() => {
-        props.bookLibraryContract?.on("BookAdded", async (id: any, title: string, numberOfCopies: number) => {
-            showNotification(`${numberOfCopies} copies of "${title}" have been added to the library.`);
+    const subscribeToContractEvents = async (contract: Contract) => {
+        contract.on("BookAdded", async (id: any, title: string, copies: number) => {
+            showNotification(`${copies} copies of "${title}" have been added to the library.`);
             await updateBooks(props.bookLibraryContract);
         });
 
-        props.bookLibraryContract?.on("BookBorrowed", async (id: any, user: any) => {
-            showNotification(`Book has been borrowed by ${user}`);
+        contract.on("BookBorrowed", async (id: any, title: string, user: any) => {
+            showNotification(`${title} has been borrowed by ${user}`);
             await updateBooks(props.bookLibraryContract);
         });
 
-        props.bookLibraryContract?.on("BookReturned", async (id: any, user: any) => {
-            showNotification(`Book has been returned by ${user}`);
+        contract.on("BookReturned", async (id: any, title: string, user: any) => {
+            showNotification(`${title} has been returned by ${user}`);
             await updateBooks(props.bookLibraryContract);
         });
-    });
+    };
 
     const updateBooks = async (contract: any) => {
         return contract
-            .getAvailableBooks()
+            .getAllBooks()
             .then((result: any) => {
                 setBooks(result.map((book: any) => {
                     return {
                         ...book,
-                        numberOfCopies: book.numberOfCopies.toNumber()
+                        copies: book.copies.toNumber()
                     }
                 }));
             })
@@ -147,7 +147,7 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
             })
             .catch((reason: any) => {
                 setOperationInProgress(false);
-                processError(reason)
+                processError(reason);
             });
     };
 
@@ -167,7 +167,7 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
             })
             .catch((reason: any) => {
                 setOperationInProgress(false);
-                processError(reason)
+                processError(reason);
             });
     };
 
@@ -244,10 +244,10 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
                             {loading ? <Loader size={64} /> : books?.map((book, idx) => (
                                 <tr key={idx}>
                                     <td>{book.title}</td>
-                                    <td>{book.numberOfCopies}</td>
+                                    <td>{book.copies}</td>
                                     <td>
                                         <div style={{ minWidth: '80px', width: '80px' }} >
-                                            <Button fetching={operationInProgress} disabled={operationInProgress} type="button" onClick={(e: any) => handleBorrowBook(e, book.id)}>
+                                            <Button fetching={operationInProgress} disabled={operationInProgress || book.copies === 0} type="button" onClick={(e: any) => handleBorrowBook(e, book.id)}>
                                                 Borrow
                                             </Button>
                                         </div>
