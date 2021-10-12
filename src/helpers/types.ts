@@ -17,3 +17,14 @@ export interface IChainData {
   native_currency: IAssetData;
   explorer?: string;
 }
+
+export enum TransactionStatus {
+  SUCCESSFUL = 1,
+  UNSUCCESSFUL = 0
+}
+
+export enum NotificationType {
+  ERROR = 'error',
+  INFO = 'info',
+  ALERT = 'alert'
+} 
