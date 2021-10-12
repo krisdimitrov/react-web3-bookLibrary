@@ -149,6 +149,7 @@ export function showTransactionLinkDialog(text: string, transactionHash: any) {
     layout: "topLeft",
     type: "information",
     theme: "mint",
+    timeout: 10000,
     closeWith: ["button"],
     buttons: [
       Noty.button("CHECK STATUS", "btn", () => {

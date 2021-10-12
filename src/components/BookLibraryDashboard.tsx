@@ -7,7 +7,6 @@ import { IBook } from "src/models/library/library.models";
 import styled from "styled-components";
 import Button from "./Button";
 import Loader from "./Loader";
-// tslint:disable:no-console
 
 interface IBookLibraryDashboardProps {
     connected: boolean;
@@ -56,7 +55,7 @@ const SContainer = styled.div`
 const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
     const TRANSACTION_STARTED_MESSAGE = 'Transaction started. Check status from the link.';
     const [loading, setLoading] = useState<boolean>(false);
-    const [operationInProgress, setOperationInProgress] = useState<boolean>(false);
+    const [transactionInProgress, setTransactionInProgress] = useState<boolean>(false);
     const [books, setBooks] = useState<IBook[]>();
     const [newBook, setNewBookData] = useState<IBook>({
         id: '',
@@ -69,7 +68,7 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
             setLoading(true);
             updateBooks(props.bookLibraryContract)
                 .then(() => showNotification('Books loaded.'))
-                .catch((reason) => processError(reason))
+                .catch(reason => processErrorAndNotify(reason))
                 .finally(() => setLoading(false));
 
             subscribeToContractEvents(props.bookLibraryContract);
@@ -79,32 +78,46 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
     const subscribeToContractEvents = async (contract: Contract) => {
         contract.on("BookAdded", async (id: any, title: string, copies: number) => {
             showNotification(`${copies} copies of "${title}" have been added to the library.`);
-            await updateBooks(props.bookLibraryContract);
+
+            const update = async () => updateBooks(contract).catch(reason => processErrorAndNotify(reason));
+            await update();
         });
 
         contract.on("BookBorrowed", async (id: any, title: string, user: any) => {
             showNotification(`${title} has been borrowed by ${user}`);
-            await updateBooks(props.bookLibraryContract);
+
+            const update = async () => updateBooks(contract).catch(reason => processErrorAndNotify(reason));
+            await update();
         });
 
         contract.on("BookReturned", async (id: any, title: string, user: any) => {
             showNotification(`${title} has been returned by ${user}`);
-            await updateBooks(props.bookLibraryContract);
+            const update = async () => updateBooks(contract).catch(reason => processErrorAndNotify(reason));
+            await update();
         });
     };
 
     const updateBooks = async (contract: any) => {
-        return contract
-            .getAllBooks()
-            .then((result: any) => {
-                setBooks(result.map((book: any) => {
-                    return {
-                        ...book,
-                        copies: book.copies.toNumber()
-                    }
-                }));
-            })
-    };
+        const fetchBooks = async () => {
+            const booksCount = (await contract.getBooksCount()).toNumber();
+            const newBooks: IBook[] = [];
+
+            for (let i = 0; i < booksCount; i++) {
+                const bookId = await contract.bookIds(i);
+                const book = await contract.books(bookId);
+                newBooks.push(book);
+            }
+            return newBooks;
+        }
+
+        return fetchBooks()
+            .then((books: IBook[]) => setBooks(books.map((book: any) => {
+                return {
+                    ...book,
+                    copies: book.copies.toNumber()
+                }
+            })))
+    }
 
     const handleInput = (e: any) => {
         const newBookObj = { ...newBook || {}, [e.target.name.toLowerCase()]: e.target.value }
@@ -121,53 +134,53 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
                 showTransactionLinkDialog(TRANSACTION_STARTED_MESSAGE, transaction.hash);
                 transaction
                     .wait()
-                    .then((receipt: ContractReceipt) => processReceipt(receipt))
-                    .catch(reason => processError(reason))
+                    .then((receipt: ContractReceipt) => processReceiptAndNotify(receipt))
+                    .catch(reason => processErrorAndNotify(reason))
                     .finally(() => setLoading(false));
             })
             .catch((reason: any) => {
                 setLoading(false);
-                processError(reason)
+                processErrorAndNotify(reason)
             });
     };
 
-    const handleBorrowBook = async (e: React.FormEvent<any>, bookId: any) => {
+    const handleBorrowBook = async (e: React.FormEvent<any>, title: string) => {
         e.preventDefault();
-        setOperationInProgress(true);
+        setTransactionInProgress(true);
 
         props.bookLibraryContract
-            ?.borrowBook(bookId)
+            ?.borrowBook(title)
             .then((transaction: ContractTransaction) => {
                 showTransactionLinkDialog(TRANSACTION_STARTED_MESSAGE, transaction.hash);
                 transaction
                     .wait()
-                    .then((receipt: ContractReceipt) => processReceipt(receipt))
-                    .catch(reason => processError(reason))
-                    .finally(() => setOperationInProgress(false));
+                    .then((receipt: ContractReceipt) => processReceiptAndNotify(receipt))
+                    .catch(reason => processErrorAndNotify(reason))
+                    .finally(() => setTransactionInProgress(false));
             })
             .catch((reason: any) => {
-                setOperationInProgress(false);
-                processError(reason);
+                setTransactionInProgress(false);
+                processErrorAndNotify(reason);
             });
     };
 
-    const handleReturnBook = async (e: React.FormEvent<any>, bookId: string) => {
+    const handleReturnBook = async (e: React.FormEvent<any>, title: string) => {
         e.preventDefault();
-        setOperationInProgress(true);
+        setTransactionInProgress(true);
 
         props.bookLibraryContract
-            ?.returnBook(bookId)
+            ?.returnBook(title)
             .then((transaction: ContractTransaction) => {
                 showTransactionLinkDialog(TRANSACTION_STARTED_MESSAGE, transaction.hash);
                 transaction
                     .wait()
-                    .then((receipt: any) => processReceipt(receipt))
-                    .catch((reason: any) => processError(reason))
-                    .finally(() => setOperationInProgress(false));
+                    .then((receipt: any) => processReceiptAndNotify(receipt))
+                    .catch((reason: any) => processErrorAndNotify(reason))
+                    .finally(() => setTransactionInProgress(false));
             })
             .catch((reason: any) => {
-                setOperationInProgress(false);
-                processError(reason);
+                setTransactionInProgress(false);
+                processErrorAndNotify(reason);
             });
     };
 
@@ -177,12 +190,11 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
 
         updateBooks(props.bookLibraryContract)
             .then(() => showNotification('Books info refreshed.'))
-            .catch((reason) => processError(reason))
+            .catch(reason => processErrorAndNotify(reason))
             .finally(() => setLoading(false));
-
     };
 
-    const processReceipt = (receipt: ContractReceipt) => {
+    const processReceiptAndNotify = (receipt: ContractReceipt) => {
         if (receipt.status && receipt.status !== TransactionStatus.SUCCESSFUL) {
             showNotification('Operation is not successful!', NotificationType.ERROR);
             return;
@@ -191,7 +203,7 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
         showNotification('Operation is successful.');
     };
 
-    const processError = (reason: any) => {
+    const processErrorAndNotify = (reason: any) => {
         if (reason.error) {
             showNotification(`Error: ${reason.error.message}`, NotificationType.ERROR);
             return;
@@ -247,14 +259,14 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
                                     <td>{book.copies}</td>
                                     <td>
                                         <div style={{ minWidth: '80px', width: '80px' }} >
-                                            <Button fetching={operationInProgress} disabled={operationInProgress || book.copies === 0} type="button" onClick={(e: any) => handleBorrowBook(e, book.id)}>
+                                            <Button fetching={transactionInProgress} disabled={transactionInProgress || book.copies === 0} type="button" onClick={(e: any) => handleBorrowBook(e, book.title)}>
                                                 Borrow
                                             </Button>
                                         </div>
                                     </td>
                                     <td>
                                         <div style={{ minWidth: '80px', width: '80px' }} >
-                                            <Button fetching={operationInProgress} disabled={operationInProgress} type="button" onClick={(e: any) => handleReturnBook(e, book.id)} color="orange">
+                                            <Button fetching={transactionInProgress} disabled={transactionInProgress} type="button" onClick={(e: any) => handleReturnBook(e, book.title)} color="orange">
                                                 Return
                                             </Button>
                                         </div>
@@ -263,7 +275,7 @@ const BookLibraryDashboard = (props: IBookLibraryDashboardProps) => {
                             ))}
                             <tfoot>
                                 <td style={{ border: 0 }}>
-                                    <Button onClick={(e: any) => handleRefresh(e)} disabled={operationInProgress}>
+                                    <Button onClick={(e: any) => handleRefresh(e)} disabled={transactionInProgress}>
                                         Refresh
                                     </Button>
                                 </td>
